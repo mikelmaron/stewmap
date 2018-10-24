@@ -1,0 +1,23 @@
+# Data
+
+download from https://www.nrs.fs.fed.us/STEW-MAP/data/download/NYC2017_STEWMAP.zip
+
+## NYC2017_STEWMAP_Polygons_Public
+* PopID
+* geometry is polygon for their turf
+* other fields same as Points
+
+## NYC2017_STEWMAP_Points_Public
+* PopID
+* geometry is point for their hq
+* other fields same as Polygons
+
+## NYC2017_STEWMAP_Networks_Public
+* PopID_RESP refers to PopID (of respondent?)
+* PopID_ALT refers to PopID (of organization referenced?)
+
+# Processing
+
+* convert all to geojson
+* strip all fields from polygons, except PopID
+* iterate through network lines, build up list of all linked orgs, add as comma seperated list in new field
