@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset='utf-8' />
+  <title>STEWMAP</title>
+  <meta name='viewport' content='initial-scale=1,maximum-scale=1,user-scalable=no' />
+  <script src='https://api.tiles.mapbox.com/mapbox-gl-js/v0.49.0/mapbox-gl.js'></script>
+  <link href='https://api.tiles.mapbox.com/mapbox-gl-js/v0.49.0/mapbox-gl.css' rel='stylesheet' />
+  <style>
+    body {
+  margin: 0;
+  padding: 0;
+}
+
+h2,
+h3 {
+  margin: 10px;
+  font-size: 1.2em;
+}
+
+h3 {
+  font-size: 1em;
+}
+
+p {
+  font-size: 0.85em;
+  margin: 10px;
+  text-align: left;
+}
+
+/**
+* Create a position for the map
+* on the page */
+#map {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 100%;
+}
+
+/**
+* Set rules for how the map overlays
+* (info box and legend) will be displayed
+* on the page. */
+.map-overlay {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  background: rgba(255, 255, 255, 0.8);
+  margin-right: 20px;
+  font-family: Arial, sans-serif;
+  overflow: auto;
+  border-radius: 3px;
+}
+
+#features {
+  top: 0;
+  height: 100px;
+  margin-top: 20px;
+  width: 250px;
+}
+  </style>
+</head>
+<body>
+
+<div id='map'></div>
+<div class='map-overlay' id='features'><h2>Interconnected Stewardship Maps</h2><div id='turf'><p>Click an organization to see its turf, network, and details.</p></div>
+<script>
+mapboxgl.accessToken = 'pk.eyJ1IjoibWlrZWxtYXJvbiIsImEiOiJjaWZlY25lZGQ2cTJjc2trbmdiZDdjYjllIn0.Wx1n0X7aeCQyDTnK6_mrGw';
+const map = new mapboxgl.Map({
+  container: 'map',
+  style: 'mapbox://styles/mikelmaron/cjp8jxatg3gxr2rp8xjp88lm0',
+  center: [-73.925498, 40.656817],
+  zoom: 6.1
+});
+
+map.on('click', function(e) {
+  var points = map.queryRenderedFeatures(e.point, {
+    layers: ['STEWMAP-Points-Networks']
+  });
+
+  if (points.length > 0) {
+    var PopID = points[0].properties.PopID;
+    document.getElementById('turf').innerHTML = "<p><a href='" + points[0].properties.OrgWebSite + "'>" + points[0].properties.OrgName + "</a></p>";
+
+    map.setFilter('nyc2017-stewmap-polygons-public', ['in', 'PopID', Number(PopID)]);
+
+    var filter = ['in','PopID'];
+    if (points[0].properties.network.length > 0) {
+      var network = points[0].properties.network.split(',');
+      for (networkid in network) {
+        filter.push(Number(network[networkid]));
+      }
+    }
+    map.setFilter('STEWMAP-Points-Networks copy', filter);
+  }
+});
+
+//map.getCanvas().style.cursor = 'default';
+
+
+</script>
+
+</body>
+</html>
