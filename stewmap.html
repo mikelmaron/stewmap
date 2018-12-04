@@ -81,7 +81,7 @@ map.on('click', function(e) {
 
   if (points.length > 0) {
     var PopID = points[0].properties.PopID;
-    document.getElementById('turf').innerHTML = "<p><a href='" + points[0].properties.OrgWebSite + "'>" + points[0].properties.OrgName + "</a></p>";
+    document.getElementById('turf').innerHTML = "<p><a href='http://" + points[0].properties.OrgWebSite + "'>" + points[0].properties.OrgName + "</a></p>";
 
     map.setFilter('nyc2017-stewmap-polygons-public', ['in', 'PopID', Number(PopID)]);
 
