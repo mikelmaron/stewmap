@@ -1,0 +1,157 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset=utf-8 />
+  <title>STEWMAP w/ Sidebar</title>
+  <script src='https://api.tiles.mapbox.com/mapbox-gl-js/v0.51.0/mapbox-gl.js'></script>
+  <link href='https://api.tiles.mapbox.com/mapbox-gl-js/v0.51.0/mapbox-gl.css' rel='stylesheet' />
+  <style>
+    body {
+      background:#fff;
+      color:#000;
+      font:500 20px/26px 'Helvetica Neue', Helvetica, Arial, Sans-serif;
+      font-color: #000;
+      margin:0;
+      padding:0;
+      -webkit-font-smoothing:antialiased;
+      }
+
+* {
+  -webkit-box-sizing: border-box;
+  -moz-box-sizing: border-box;
+  box-sizing: border-box;
+}
+
+h1 {
+  font-size: 22px;
+  margin: 0;
+  font-weight: 400;
+  line-height: 20px;
+  padding: 20px 2px;
+  color: #000;
+}
+
+a {
+  color: #404040;
+  text-decoration: none;
+}
+
+a:hover {
+  color: #101010;
+}
+
+.sidebar {
+  position: absolute;
+  width: 33.3333%;
+  height: 100%;
+  top: 0;
+  left: 0;
+  overflow: hidden;
+  border-right: 1px solid rgba(0, 0, 0, 0.25);
+}
+
+.pad2 {
+  padding: 20px;
+}
+
+.map {
+  position: absolute;
+  left: 33.3333%;
+  width: 66.6666%;
+  top: 0;
+  bottom: 0;
+}
+
+.heading {
+  background: #fff;
+  border-bottom: 1px solid #eee;
+  height: 60px;
+  line-height: 60px;
+  padding: 0 10px;
+}
+
+.listings {
+  height: 100%;
+  overflow: auto;
+  padding-bottom: 60px;
+}
+
+::-webkit-scrollbar {
+  width: 3px;
+  height: 3px;
+  border-left: 0;
+  background: rgba(0, 0, 0, 0.1);
+}
+
+::-webkit-scrollbar-track {
+  background: none;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #00853e;
+  border-radius: 0;
+}
+
+.clearfix { display: block; }
+
+.clearfix::after {
+  content: '.';
+  display: block;
+  height: 0;
+  clear: both;
+  visibility: hidden;
+}
+.turf { 
+ font-color: #fff;
+}
+
+  </style>
+}
+</head>
+
+<body>
+  <div class='sidebar'>
+    <div class='heading'>
+      <h1>Interconnected Stewardship Maps</h1>
+
+
+    </div>
+    <div id='features'>
+    	<div id='turf'><p>Click an organization to see its turf, network, and details.</p></div>
+    </div>
+  </div>
+  
+  <div id='map' class='map'> </div>
+<script>
+ mapboxgl.accessToken = 'pk.eyJ1IjoibWlrZWxtYXJvbiIsImEiOiJjaWZlY25lZGQ2cTJjc2trbmdiZDdjYjllIn0.Wx1n0X7aeCQyDTnK6_mrGw';
+const map = new mapboxgl.Map({
+  container: 'map',
+  style: 'mapbox://styles/mikelmaron/cjp8jxatg3gxr2rp8xjp88lm0',
+  center: [-73.925498, 40.656817],
+  zoom: 6.1
+});
+
+map.on('click', function(e) {
+  var points = map.queryRenderedFeatures(e.point, {
+    layers: ['STEWMAP-Points-Networks']
+  });
+  if (points.length > 0) {
+    var PopID = points[0].properties.PopID;
+    document.getElementById('turf').innerHTML = "<p><a href='http://" + points[0].properties.OrgWebSite + "'>" + points[0].properties.OrgName + "</a></p>";
+    map.setFilter('nyc2017-stewmap-polygons-public', ['in', 'PopID', Number(PopID)]);
+    var filter = ['in','PopID'];
+    if (points[0].properties.network.length > 0) {
+      var network = points[0].properties.network.split(',');
+      for (networkid in network) {
+        filter.push(Number(network[networkid]));
+      }
+    }
+    map.setFilter('STEWMAP-Points-Networks copy', filter);
+  }
+});
+//map.getCanvas().style.cursor = 'default';
+
+</script>
+</body>
+</html>
