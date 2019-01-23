@@ -1,72 +1,131 @@
+
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset='utf-8' />
-  <title>STEWMAP</title>
-  <meta name='viewport' content='initial-scale=1,maximum-scale=1,user-scalable=no' />
-  <script src='https://api.tiles.mapbox.com/mapbox-gl-js/v0.49.0/mapbox-gl.js'></script>
-  <link href='https://api.tiles.mapbox.com/mapbox-gl-js/v0.49.0/mapbox-gl.css' rel='stylesheet' />
+  <meta charset=utf-8 />
+  <title>STEWMAP w/ Sidebar</title>
+  <script src='https://api.tiles.mapbox.com/mapbox-gl-js/v0.51.0/mapbox-gl.js'></script>
+  <link href='https://api.tiles.mapbox.com/mapbox-gl-js/v0.51.0/mapbox-gl.css' rel='stylesheet' />
   <style>
     body {
+      background:#fff;
+      color:#000;
+      font:500 20px/26px "Lucida Grande", "Lucida Sans Unicode", "Lucida Sans", Geneva, Verdana
+      font-color: #000;
+      margin:0;
+      padding:0;
+      -webkit-font-smoothing:antialiased;
+      }
+
+* {
+  -webkit-box-sizing: border-box;
+  -moz-box-sizing: border-box;
+  box-sizing: border-box;
+}
+
+h1 {
+  font-size: 22px;
   margin: 0;
-  padding: 0;
+  font-weight: 400;
+  line-height: 20px;
+  padding: 20px 2px;
+  color: #000;
 }
 
-h2,
-h3 {
-  margin: 10px;
-  font-size: 1.2em;
+a {
+  color: #404040;
+  text-decoration: none;
 }
 
-h3 {
-  font-size: 1em;
+a:hover {
+  color: #101010;
 }
 
-p {
-  font-size: 0.85em;
-  margin: 10px;
-  text-align: left;
-}
-
-/**
-* Create a position for the map
-* on the page */
-#map {
+.sidebar {
   position: absolute;
+  width: 33.3333%;
+  height: 100%;
+  top: 0;
+  left: 0;
+  overflow: hidden;
+  border-right: 1px solid rgba(0, 0, 0, 0.25);
+}
+
+.pad2 {
+  padding: 20px;
+}
+
+.map {
+  position: absolute;
+  left: 33.3333%;
+  width: 66.6666%;
   top: 0;
   bottom: 0;
-  width: 100%;
 }
 
-/**
-* Set rules for how the map overlays
-* (info box and legend) will be displayed
-* on the page. */
-.map-overlay {
-  position: absolute;
-  bottom: 0;
-  right: 0;
-  background: rgba(255, 255, 255, 0.8);
-  margin-right: 20px;
-  font-family: Arial, sans-serif;
+.heading {
+  background: #fff;
+  border-bottom: 1px solid #eee;
+  height: 60px;
+  line-height: 60px;
+  padding: 0 10px;
+}
+
+.listings {
+  height: 100%;
   overflow: auto;
-  border-radius: 3px;
+  padding-bottom: 60px;
 }
 
-#features {
-  top: 0;
-  height: 100px;
-  margin-top: 20px;
-  width: 250px;
+::-webkit-scrollbar {
+  width: 3px;
+  height: 3px;
+  border-left: 0;
+  background: rgba(0, 0, 0, 0.1);
 }
+
+::-webkit-scrollbar-track {
+  background: none;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #00853e;
+  border-radius: 0;
+}
+
+.clearfix { display: block; }
+
+.clearfix::after {
+  content: '.';
+  display: block;
+  height: 0;
+  clear: both;
+  visibility: hidden;
+}
+.turf {
+ font-color: #fff;
+}
+
   </style>
+}
 </head>
-<body>
 
-<div id='map'></div>
-<div class='map-overlay' id='features'><h2>Interconnected Stewardship Maps</h2><div id='turf'><p>Click an organization to see its turf, network, and details.</p></div>
+<body>
+  <div class='sidebar'>
+    <div class='heading'>
+      <center>
+      <h1>Interconnected Stewardship Maps</h1>
+    </center>
+
+    </div>
+    <div id='features'>
+    	<div id='turf'><p>Click an organization to see its turf, network, and details.</p></div>
+    </div>
+  </div>
+
+  <div id='map' class='map'> </div>
 <script>
-mapboxgl.accessToken = 'pk.eyJ1IjoibWlrZWxtYXJvbiIsImEiOiJjaWZlY25lZGQ2cTJjc2trbmdiZDdjYjllIn0.Wx1n0X7aeCQyDTnK6_mrGw';
+ mapboxgl.accessToken = 'pk.eyJ1IjoibWlrZWxtYXJvbiIsImEiOiJjaWZlY25lZGQ2cTJjc2trbmdiZDdjYjllIn0.Wx1n0X7aeCQyDTnK6_mrGw';
 const map = new mapboxgl.Map({
   container: 'map',
   style: 'mapbox://styles/mikelmaron/cjp8jxatg3gxr2rp8xjp88lm0',
@@ -78,13 +137,27 @@ map.on('click', function(e) {
   var points = map.queryRenderedFeatures(e.point, {
     layers: ['STEWMAP-Points-Networks']
   });
-
   if (points.length > 0) {
     var PopID = points[0].properties.PopID;
-    document.getElementById('turf').innerHTML = "<p><a href='http://" + points[0].properties.OrgWebSite + "'>" + points[0].properties.OrgName + "</a></p>";
+    var propertyText = "<p><a href='http://" + points[0].properties.OrgWebSite + "'>" + points[0].properties.OrgName + "</a></p>" +
+      "<p><b>Phone: </b>" + points[0].properties.OrgPhone + "</p>" +
+      "<p><b>Email: </b><a mailto:" + points[0].properties.OrgEmail + "'>" + points[0].properties.OrgEmail + "</a></p>" +
+      "<p>" + points[0].properties.NYC_region + "</p>" +
+        "<p><strong>Address:</strong>" + points[0].properties.OrgStreet1 + "</p>" +
+        "<p>" + points[0].properties.OrgStreet2 + "</p>" +
+        "<p>" + points[0].properties.Orgcity + "," + points[0].properties.OrgState +" " + point[0].properties.OrgZip + "</p>" +
+      "<p><b>Goals + Mission: </b>"  + points[0].properties.Goals + "</p>" +
+      "<p>"  + points[0].properties.Mission + "</p>" +
+      "<p>Full Time Staff: " + points[0].properties.FTStaff + "Part Time: " +points[0].properties.PTStaff + "</p>" +
+      "<p> Members: " + points[0].properties.Members + "</p>" +
+      "<p> Funding: " + points[0].properties.Funding + "</p>" +
+      "<p> OrgType: " + points[0].properties.OrgType + "</p>" +
+      "<p> OrgType_Ot: " + points[0].properties.OrgType_Ot + "</p>";
+
+    document.getElementById('turf').innerHTML = propertyText;
+
 
     map.setFilter('nyc2017-stewmap-polygons-public', ['in', 'PopID', Number(PopID)]);
-
     var filter = ['in','PopID'];
     if (points[0].properties.network.length > 0) {
       var network = points[0].properties.network.split(',');
@@ -95,11 +168,8 @@ map.on('click', function(e) {
     map.setFilter('STEWMAP-Points-Networks copy', filter);
   }
 });
-
 //map.getCanvas().style.cursor = 'default';
 
-
 </script>
-
 </body>
 </html>
