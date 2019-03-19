@@ -25,26 +25,40 @@ def url2file(url,file_name):
   myFile.write(rsp.read())
   myFile.close()
 
-def download():
-    url2file("https://www.nrs.fs.fed.us/STEW-MAP/data/download/NYC2017_STEWMAP.zip", "NYC2017_STEWMAP.zip")
-    os.system("unzip NYC2017_STEWMAP.zip")
+def download(places):
+    if places == "NYC" or places == "all":
+        url2file("https://www.nrs.fs.fed.us/STEW-MAP/data/download/NYC2017_STEWMAP.zip", "NYC2017_STEWMAP.zip")
+        os.system("unzip NYC2017_STEWMAP.zip")
 
-def convert():
-    os.system("rm NYC2017_STEWMAP_Polygons_Public.geojson NYC2017_STEWMAP_Points_Public.geojson NYC2017_STEWMAP_Networks_Public.geojson")
+    if places == "Baltimore" or places == "all":
+        url2file("https://www.nrs.fs.fed.us/STEW-MAP/data/download/Baltimore_STEWMAP.zip", "Baltimore_STEWMAP.zip")
+        os.system("unzip Baltimore_STEWMAP.zip")
 
-    os.system("ogr2ogr -t_srs epsg:4326 -f GeoJSON -select PopID NYC2017_STEWMAP_Polygons_Public.geojson NYC2017_STEWMAP_Polygons_Public.shp")
-    os.system("ogr2ogr -t_srs epsg:4326 -f GeoJSON NYC2017_STEWMAP_Points_Public.geojson NYC2017_STEWMAP_Points_Public.shp")
-    os.system("ogr2ogr -t_srs epsg:4326 -f GeoJSON NYC2017_STEWMAP_Networks_Public.geojson NYC2017_STEWMAP_Networks_Public.shp")
+def convert(places):
+    if places == "NYC" or places == "all":
+        os.system("rm NYC2017_STEWMAP_Polygons_Public.geojson NYC2017_STEWMAP_Points_Public.geojson NYC2017_STEWMAP_Networks_Public.geojson")
 
-def encode_network():
-    points_file = readfile("NYC2017_STEWMAP_Points_Public.geojson")
+        os.system("ogr2ogr -t_srs epsg:4326 -f GeoJSON -select PopID NYC2017_STEWMAP_Polygons_Public.geojson NYC2017_STEWMAP_Polygons_Public.shp")
+        os.system("ogr2ogr -t_srs epsg:4326 -f GeoJSON NYC2017_STEWMAP_Points_Public.geojson NYC2017_STEWMAP_Points_Public.shp")
+        os.system("ogr2ogr -t_srs epsg:4326 -f GeoJSON NYC2017_STEWMAP_Networks_Public.geojson NYC2017_STEWMAP_Networks_Public.shp")
+
+    if places == "Baltimore" or places == "all":
+        os.system("rm Baltimore_Polygons.geojson Baltimore_Points.geojson Baltimore_Networks.geojson")
+
+        os.system("ogr2ogr -t_srs epsg:4326 -f GeoJSON -select PopID Baltimore_Polygons.geojson Baltimore_STEWMAP/Baltimore_STEWMAP_shapefiles/Baltimore_Polygons.shp")
+        os.system("ogr2ogr -t_srs epsg:4326 -f GeoJSON Baltimore_Points.geojson Baltimore_STEWMAP/Baltimore_STEWMAP_shapefiles/Baltmore_Points.shp")
+        os.system("ogr2ogr -t_srs epsg:4326 -f GeoJSON Baltimore_Networks.geojson Baltimore_STEWMAP/Baltimore_STEWMAP_shapefiles/Baltimore_Networks.shp")
+
+
+def _encode_network(points_file_name, networks_file_name, points_network_file_name, source_property, dest_property ):
+    points_file = readfile(points_file_name)
     points = geojson.loads(points_file)
-    networks = geojson.loads(readfile("NYC2017_STEWMAP_Networks_Public.geojson"))
+    networks = geojson.loads(readfile(networks_file_name))
     network_list = {}
 
     for feature in networks.features:
-        source = feature.properties['PopID_RESP']
-        dest = feature.properties['PopID__ALT']
+        source = feature.properties[source_property]
+        dest = feature.properties[dest_property]
 
         if not (source in network_list):
             network_list[source] = []
@@ -67,9 +81,16 @@ def encode_network():
         result['features'].append( feature )
 
     dump = geojson.dumps(result, sort_keys=True, indent=2)
-    writefile('NYC2017_STEWMAP_Points_Networks_Public.geojson',dump)
+    writefile(points_network_file_name,dump)
+
+def encode_network(places):
+    if places == "NYC" or places == "all":
+        _encode_network("NYC2017_STEWMAP_Points_Public.geojson", "NYC2017_STEWMAP_Networks_Public.geojson", "NYC2017_STEWMAP_Points_Networks_Public.geojson", "PopID_RESP", "PopID__ALT")
+
+    if places == "Baltimore" or places == "all":
+        _encode_network("Baltimore_Points.geojson", "Baltimore_Networks.geojson", "Baltimore_Points_Networks.geojson", "PopID_Resp", "PopID_Part")
 
 
-#download()
-convert()
-encode_network()
+#download('Baltimore')
+convert('Baltimore')
+encode_network('Baltimore')
