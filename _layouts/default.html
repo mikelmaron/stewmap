@@ -8,11 +8,13 @@
   <link href="https://api.mapbox.com/mapbox-assembly/v0.23.1/assembly.min.css" rel="stylesheet">
   <script src="https://api.tiles.mapbox.com/mapbox-gl-js/v0.53.0/mapbox-gl.js"></script>
   <link href="https://api.tiles.mapbox.com/mapbox-gl-js/v0.53.0/mapbox-gl.css" rel="stylesheet" />
-  <script src="bbox.js"></script>
+  <script src='https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v4.4.2/mapbox-gl-geocoder.min.js'></script>
+  <link rel='stylesheet' href='https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v4.4.2/mapbox-gl-geocoder.css' type='text/css' />
+  <script src="../bbox.js"></script>
   <style>
     body {
-      background: #4a5152;
-      color: #fff;
+      background: #F9C66D;
+      color: #000;
       margin: 0;
       padding: 0;
       -webkit-font-smoothing: antialiased;
@@ -76,26 +78,39 @@
       cursor: pointer;
     }
 
-    #detailItem {
-      padding: 10px;
-      font-family: "Liberation Mono", courier, monospace;
+    .sidebar--iteminfo {
+      font-weight: bold;
+      height: 58px;
+    }
+
+    .sidebar--profile {
       font-size: 12px;
     }
 
+    .sidebar--networkorg {
+      color: #af8edf;
+      text-decoration: underline;
+      font-weight: bold;
+    }
+    .sidebar--networkorg:hover {
+      text-decoration: none;
+    }
     .description {
       font-size: 12px;
       padding: 10px;
     }
 
     .active {
-      color: #d06222;
+      color: #036103;
     }
     .network {
       color: #af8edf;
     }
 
     .sidebar--item.active {
-      border-left: 10px solid #d06222;
+      border-left: 10px solid #036103;
+      height: 100%;
+      overflow: scroll;
     }
 
     .sidebar--item.network {
@@ -141,7 +156,7 @@
     }
 
     ::-webkit-scrollbar-thumb {
-      background: #d06222;
+      background: #036103;
       border-radius: 0;
     }
 
@@ -183,13 +198,307 @@
 
     const map = new mapboxgl.Map({
       container: "map",
-      style: "mapbox://styles/mapbox/dark-v9",
+      style: "mapbox://styles/mikelmaron/ck2xtkpm10yhq1cnzdmjhoalx",
       center: [{{page.lon}}, {{page.lat}}],
       zoom: {{page.zoom}}
     });
+    map.addControl(new MapboxGeocoder({
+      accessToken: mapboxgl.accessToken,
+      mapboxgl: mapboxgl
+    }));
+    map.addControl(new mapboxgl.NavigationControl());
 
-    const SOURCE_LAYER = "{{page.points_source_layer}}";
-    let hqs = [];
+    map.on("load", () => {
+      map.addSource("network-points", {
+        url: "mapbox://{{page.points_source}}",
+        type: "vector",
+      });
+
+      map.addSource("network-turf", {
+        url: "mapbox://{{page.polygon_source}}",
+        type: "vector",
+      });
+
+      map.addLayer({
+        id: "org-turf",
+        type: "fill",
+        source: "network-turf",
+        "source-layer": "{{page.polygon_source_layer}}",
+        paint: {
+          "fill-color": "rgba(208, 98, 34, 0.41)"
+        },
+        filter: ["==", ["get", "PopID"], ""]
+      })
+
+      map.addLayer({
+        id: "org-turf-outline",
+        type: "line",
+        source: "network-turf",
+        "source-layer": "{{page.polygon_source_layer}}",
+        paint: {
+          "line-color": "rgb(208, 98, 34)",
+          "line-width": 2
+        },
+        filter: ["==", ["get", "PopID"], ""]
+      })
+
+      map.addLayer({
+        id: "org-turf-hover",
+        type: "line",
+        source: "network-turf",
+        "source-layer": "{{page.polygon_source_layer}}",
+        paint: {
+          "line-color": "#F9C66D",
+          "line-width": 3
+        },
+        filter: ["==", ["get", "PopID"], ""]
+      })
+
+      map.addLayer({
+        id: "network-hq",
+        type: "circle",
+        source: "network-points",
+        "source-layer": "{{page.points_source_layer}}",
+        paint: {
+          "circle-color": "#af8edf",
+          "circle-radius": 5
+        },
+        filter: ["==", ["get", "PopID"], ""]
+      });
+
+      map.addLayer({
+        id: "network-hq-outline",
+        type: "circle",
+        source: "network-points",
+        "source-layer": "{{page.points_source_layer}}",
+        paint: {
+          "circle-color": "rgba(124, 163, 230, 0)",
+          "circle-radius": 10,
+          "circle-stroke-color": "#af8edf",
+          "circle-stroke-width": 2,
+        },
+        filter: ["==", ["get", "PopID"], ""]
+      });
+
+      map.addLayer({
+        id: "org-hq",
+        type: "circle",
+        source: "network-points",
+        "source-layer": "{{page.points_source_layer}}",
+        paint: {
+          "circle-color": "#036103",
+          "circle-radius": 6
+        },
+        filter: ["==", ["get", "PopID"], ""]
+      });
+
+      map.addLayer({
+        id: "org-hq-outline",
+        type: "circle",
+        source: "network-points",
+        "source-layer": "{{page.points_source_layer}}",
+        paint: {
+          "circle-color": "rgba(81, 249, 198, 0)",
+          "circle-radius": 12,
+          "circle-stroke-color": "#036103",
+          "circle-stroke-width": 1,
+        },
+        filter: ["==", ["get", "PopID"], ""]
+      });
+
+      if (map.isSourceLoaded("network-points") && map.isSourceLoaded("network-turf")) {
+        buildSidebar();
+      } else {
+        map.on("sourcedata", setAfterLoad);
+      }
+
+      map.on("click", mapTurfOnClick);
+    })
+
+    var popup = new mapboxgl.Popup({
+      closeButton: false,
+      closeOnClick: false
+    });
+
+    const showPopUp = (e) => {
+      // Change the cursor style as a UI indicator.
+      map.getCanvas().style.cursor = 'pointer';
+
+      var coordinates = e.features[0].geometry.coordinates.slice();
+      var description = e.features[0].properties.OrgName;
+
+      // Ensure that if the map is zoomed out such that multiple
+      // copies of the feature are visible, the popup appears
+      // over the copy being pointed to.
+      while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
+        coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
+      }
+
+      // Populate the popup and set its coordinates
+      // based on the feature found.
+      popup.setLngLat(coordinates)
+       .setHTML(description)
+       .addTo(map);
+    }
+
+    map.on('mouseenter', 'network-hq', showPopUp);
+    map.on('mouseenter', 'org-hq', showPopUp);
+
+    const hidePopUp = (e) => {
+      map.getCanvas().style.cursor = '';
+      popup.remove();
+    }
+    map.on('mouseleave', 'network-hq', hidePopUp);
+    map.on('mouseleave', 'org-hq', hidePopUp);
+
+    const clickOrg = (e) => {
+      const el = document.getElementById("popID" + e.features[0].properties['PopID']);
+      resetOrgOnClick();
+      mapOrgOnClick(hqNetworks[e.features[0].properties['PopID']], el);
+      listOrgOnClick(hqNetworks[e.features[0].properties['PopID']], el);
+    }
+    map.on('click', 'network-hq', clickOrg);
+
+    let buildSidebarInterval = -1;
+
+    const setAfterLoad = (e) => {
+      if (map.isSourceLoaded('network-points') && map.isSourceLoaded('network-turf')) {
+        buildSidebarInterval = setInterval(buildSidebar,100);
+        map.off("sourcedata", setAfterLoad)
+      }
+    }
+
+    const buildSidebar = () => {
+      const requestedData = map.querySourceFeatures("network-points", {
+        sourceLayer: "{{page.points_source_layer}}"
+      });
+      if (requestedData.length < {{page.org_count}}) return;
+      clearInterval(buildSidebarInterval);
+
+      const sidebar = document.getElementById("orgs");
+      document.getElementById("clear").addEventListener("click", resetOrgOnClick);
+      document.getElementById("stewsearch").addEventListener("input", searchOrgs);
+
+      let hqs = [];
+      requestedData.map(function(item) {
+        return hqs.push(item.properties);
+      });
+      hqs = hqs.sort(function(a,b) {
+        if (a['OrgName'] == undefined) return 1;
+        if (b['OrgName'] == undefined) return -1;
+        return (a['OrgName'].toLowerCase() < b['OrgName'].toLowerCase() ? -1 : 1)
+      });
+      const keys = ["PopID"];
+      const uniqueHqs = hqs.filter(
+        (s => o =>
+          (k => !s.has(k) && s.add(k))
+          (keys.map(k => o[k]).join("|"))
+        )
+        (new Set)
+      );
+
+      //global scope, got fed up trying to enable scope within map anonymous function below
+      hqNames = {};
+      uniqueHqs.forEach((t) => {
+        hqNames[t.PopID] = t.OrgName;
+      });
+
+      hqNetworks = {};
+      uniqueHqs.forEach((t) => {
+        hqNetworks[t.PopID] = t.network;
+      });
+
+      uniqueHqs.map(function(t) {
+        const sidebarItem = document.createElement("div");
+        sidebarItem.classList.add("sidebar--item");
+        sidebarItem.id = 'popID' + t.PopID;
+        sidebarItem.setAttribute('data-bbox', t._bbox);
+
+        const itemInfo = document.createElement("div");
+        itemInfo.classList.add("sidebar--iteminfo");
+        itemInfo.textContent = `${t.OrgName}`;
+        sidebarItem.append(itemInfo);
+
+        const itemProfile = document.createElement("p");
+        itemProfile.classList.add("hidden");
+        itemProfile.classList.add("sidebar--profile")
+        itemProfile.innerHTML = buildProfile(t) + buildNetworkList(t);
+        sidebarItem.append(itemProfile);
+
+
+        sidebar.append(sidebarItem);
+
+        const networks = t.network;
+        itemInfo.addEventListener("click", function(){
+          const el = this.parentElement;
+          resetOrgOnClick();
+          mapOrgOnClick(networks, el);
+          listOrgOnClick(networks,el);
+        });
+
+        sidebarItem.addEventListener("mouseover", function(){
+          map.setFilter("org-turf-hover", ["==", ["get", "PopID"], Number(this.id.replace('popID',''))]);
+        });
+        sidebarItem.addEventListener("mouseout", function(){
+          map.setFilter("org-turf-hover", ["==", ["get", "PopID"], ""]);
+        });
+      });
+
+      document.querySelectorAll('.sidebar--networkorg').forEach((element) => {
+        const networks = element.network;
+        element.addEventListener("mouseover", function(){
+          map.setFilter("network-hq-outline", ["==", ["get", "PopID"], Number(this.getAttribute('data-popID'))]);
+        });
+        element.addEventListener("mouseout", function(){
+          map.setFilter("network-hq-outline", ["==", ["get", "PopID"], ""]);
+        });
+        element.addEventListener("click", function(){
+          const el = document.getElementById("popID" + this.getAttribute('data-popID'));
+          resetOrgOnClick();
+          mapOrgOnClick(hqNetworks[this.getAttribute('data-popID')], el);
+          listOrgOnClick(hqNetworks[this.getAttribute('data-popID')], el);
+        });
+      });
+
+    }
+
+    const resetOrgOnClick = () => {
+      map.setFilter("org-hq", ["==", ["get", "PopID"], ""]);
+      map.setFilter("org-hq-outline", ["==", ["get", "PopID"], ""]);
+      map.setFilter("network-hq", ["==", ["get", "PopID"], ""]);
+      map.setFilter("network-hq-outline", ["==", ["get", "PopID"], ""]);
+      map.setFilter("org-turf", ["==", "PopID", ""]);
+      map.setFilter("org-turf-outline", ["==", "PopID", ""]);
+
+      document.querySelector('#clear').classList.add('hidden');
+      document.querySelector('#stewsearch').classList.remove('hidden');
+
+      document.querySelectorAll('.sidebar--item').forEach((element) => {
+        element.classList.remove('hidden');
+        element.classList.remove('active');
+        element.classList.remove('network');
+        element.classList.remove('explore');
+      });
+
+      document.querySelectorAll('.sidebar--profile').forEach((element) => {
+        element.classList.add('hidden');
+      });
+
+    }
+
+    const searchOrgs = (e) => {
+       var search = e.target.value.toLowerCase();
+
+       document.querySelectorAll('.sidebar--item').forEach((element) => {
+         if (search.length <= 3) {
+           element.classList.remove('hidden');
+         } else if (search.length > 3 && element.firstChild.textContent.toLowerCase().search(search) != -1) {
+           element.classList.remove('hidden');
+         } else {
+           element.classList.add('hidden');
+         }
+       });
+    }
 
     const buildNetworkFilter = (networkString) => {
       const filter = ["in", "PopID"];
@@ -236,21 +545,11 @@
       map.setFilter("org-hq", ["==", ["get", "PopID"], Number(popId)]);
       map.setFilter("org-hq-outline", ["==", ["get", "PopID"], Number(popId)]);
       map.setFilter("network-hq", buildNetworkFilter(networkString));
-      map.setFilter("network-hq-outline", buildNetworkFilter(networkString));
+      //map.setFilter("network-hq-outline", buildNetworkFilter(networkString));
       map.setFilter("org-turf", ["==", "PopID", Number(popId)]);
 
-      map.flyTo({center: [{{page.lon}}, {{page.lat}}],zoom: {{page.zoom}} });
-      map.once("idle", function() {
-        var features = map.queryRenderedFeatures({layers: ['org-hq', 'network-hq', 'org-turf']});
-        buildProfile(features[0].properties);
-        var featureCollection = {
-          'type': 'FeatureCollection',
-          'features': features.map(function(item,index){ return {'type':'Feature', 'geometry': item['geometry']}})
-        };
-        var bbox = turf.bbox.default(featureCollection);
-        var bounds = [ [bbox[0], bbox[1]], [bbox[2],bbox[3]] ];
-        map.fitBounds(bounds, {  padding: {top: 50, bottom:50, left: 50, right: 50}, maxZoom: 17});
-      });
+      var bounds = el.getAttribute('data-bbox').split(',');
+      map.fitBounds(bounds, {  padding: {top: 50, bottom:50, left: 50, right: 50}, maxZoom: 17});
     }
 
     const listOrgOnClick = (networkString, el) => {
@@ -267,41 +566,13 @@
       el.classList.remove('hidden');
       el.classList.add('active');
 
-      if (networkString) {
-        networkString.split(',').forEach((network_id) => {
-          var element = document.querySelector('#popID' + network_id);
-          if (element) {
-            element.classList.remove('hidden');
-            element.classList.add('network');
-          }
-        });
-      }
-
-      const detailItem = document.createElement("div");
-      detailItem.id = 'detailItem';
-      el.parentNode.insertBefore(detailItem, el.nextSibling);
-
-      el.parentNode.scrollTo({top: el.offsetTop - 100,   behavior: 'smooth'});
+      el.querySelector('.sidebar--profile').classList.remove('hidden');
     }
 
-    const searchOrgs = (e) => {
-       var search = e.target.value.toLowerCase();
 
-       document.querySelectorAll('.sidebar--item').forEach((element) => {
-         if (search.length <= 3) {
-           element.classList.remove('hidden');
-         } else if (search.length > 3 && element.firstChild.textContent.toLowerCase().search(search) != -1) {
-           element.classList.remove('hidden');
-         } else {
-           element.classList.add('hidden');
-         }
-       });
-    }
-
-    const buildProfile = (properties) => {
-      document.querySelector("#detailItem").innerHTML =
-           "<p><a href='http://" + properties.OrgWebSite + "'>http://" + properties.OrgWebSite + "</a><br/>" +
-           "<b>Phone: </b>" + properties.OrgPhone + "<br/>" +
+    function buildProfile(properties) {
+           return ( properties.OrgWebSite ? "<p><a href='http://" + properties.OrgWebSite + "'>http://" + properties.OrgWebSite + "</a><br/>" : "") +
+           (properties.OrgPhone? "<b>Phone: </b>" + properties.OrgPhone + "<br/>" : "") +
            "<b>Email: </b><a href='mailto:" + properties.OrgEmail + "'>" + properties.OrgEmail + " </a><br/>" +
            "</p><p><strong>Address:</strong>" + properties.OrgStreet1 + "<br/>" +
            "" + properties.OrgCity + "," + properties.OrgState + " " + properties.OrgZip + "</p>" +
@@ -311,207 +582,20 @@
            "<b>Members: </b>" + properties.Members + "<br/>" +
            "<b>Funding: </b>" + properties.Funding + "<br/>" +
            "<b>OrgType: </b>" + properties.OrgType + "</p>";
-      document.querySelector("#detailItem").offsetHeight;
     }
 
-    const resetOrgOnClick = () => {
-      map.setFilter("org-hq", ["==", ["get", "PopID"], ""]);
-      map.setFilter("org-hq-outline", ["==", ["get", "PopID"], ""]);
-      map.setFilter("network-hq", ["==", ["get", "PopID"], ""]);
-      map.setFilter("network-hq-outline", ["==", ["get", "PopID"], ""]);
-      map.setFilter("org-turf", ["==", "PopID", ""]);
-      map.setFilter("org-turf-outline", ["==", "PopID", ""]);
-
-
-      document.querySelector('#clear').classList.add('hidden');
-      document.querySelector('#stewsearch').classList.remove('hidden');
-
-      if (document.querySelector("#detailItem")) {
-        document.querySelector('#detailItem').remove();
-      }
-
-      document.querySelectorAll('.sidebar--item').forEach((element) => {
-        element.classList.remove('hidden');
-        element.classList.remove('active');
-        element.classList.remove('network');
-        element.classList.remove('explore');
-      });
-
-      //map.flyTo({center: [-73.925498, 40.656817],zoom: 6.1});
-    }
-
-    const buildSidebar = () => {
-      const sidebar = document.getElementById("orgs");
-      document.getElementById("clear").addEventListener("click", resetOrgOnClick);
-      document.getElementById("stewsearch").addEventListener("input", searchOrgs);
-      const requestedData = map.querySourceFeatures("network-points", {
-        sourceLayer: SOURCE_LAYER
-      });
-      if (requestedData.length < {{page.org_count}}) return;
-      clearInterval(buildSidebarInterval);
-      requestedData.map(item => hqs.push(item.properties));
-      hqs = hqs.sort(function(a,b) {
-        if (a['OrgName'] == undefined) return 1;
-        if (b['OrgName'] == undefined) return -1;
-        return (a['OrgName'].toLowerCase() < b['OrgName'].toLowerCase() ? -1 : 1)
-      });
-      const keys = ["PopID"];
-      const uniqueHqs = hqs.filter(
-        (s => o =>
-          (k => !s.has(k) && s.add(k))
-          (keys.map(k => o[k]).join("|"))
-        )
-        (new Set)
-      );
-
-      uniqueHqs.map((t) => {
-        const sidebarItem = document.createElement("div");
-        const itemInfo = document.createElement("p");
-        sidebarItem.classList.add("sidebar--item");
-        sidebarItem.id = 'popID' + t.PopID;
-        itemInfo.textContent = `${t.OrgName}`;
-        sidebarItem.append(itemInfo);
-        sidebar.append(sidebarItem);
-        const networks = t.network;
-        // todo -- calculate bbox now, stash in context, and zoom rather than reset
-        // also build info box here, including network orgs
-        //const bbox = ;
-        sidebarItem.addEventListener("click", function(){
-          const el = this;
-          resetOrgOnClick();
-          mapOrgOnClick(networks, el);
-          listOrgOnClick(networks,el);
+    function buildNetworkList(properties) {
+      let list = "<p>";
+      if (properties.network) {
+        properties.network.split(",").forEach(function(popID) {
+          list += "<span class='sidebar--networkorg' data-popid='" + popID + "'>" + hqNames[popID] + "</span> ";
         });
-        sidebarItem.addEventListener("mouseover", function(){
-          map.setFilter("org-turf-hover", ["==", ["get", "PopID"], Number(this.id.replace('popID',''))]);
-        });
-        sidebarItem.addEventListener("mouseout", function(){
-          map.setFilter("org-turf-hover", ["==", ["get", "PopID"], ""]);
-        });
-      });
+      }
+      list += "</p>";
+      return list;
     }
 
-    var buildSidebarInterval = -1;
 
-    const setAfterLoad = (e) => {
-      if (e.sourceId === "network-points" && map.isSourceLoaded('network-points')) {
-        buildSidebarInterval = setInterval(buildSidebar,100);
-        //buildSidebar();
-        map.off("sourcedata", setAfterLoad)
-      }
-    }
-
-    map.on("load", () => {
-      map.addSource("network-points", {
-        url: "mapbox://{{page.points_source}}",
-        type: "vector",
-      });
-
-      map.addSource("network-turf", {
-        url: "mapbox://{{page.polygon_source}}",
-        type: "vector",
-      });
-
-      map.addLayer({
-        id: "org-turf",
-        type: "fill",
-        source: "network-turf",
-        "source-layer": "{{page.polygon_source_layer}}",
-        paint: {
-          "fill-color": "rgba(208, 98, 34, 0.41)"
-        },
-        filter: ["==", ["get", "PopID"], ""]
-      })
-
-      map.addLayer({
-        id: "org-turf-outline",
-        type: "line",
-        source: "network-turf",
-        "source-layer": "{{page.polygon_source_layer}}",
-        paint: {
-          "line-color": "rgb(208, 98, 34)",
-          "line-width": 2
-        },
-        filter: ["==", ["get", "PopID"], ""]
-      })
-
-      map.addLayer({
-        id: "org-turf-hover",
-        type: "line",
-        source: "network-turf",
-        "source-layer": "{{page.polygon_source_layer}}",
-        paint: {
-          "line-color": "rgb(256, 256, 256)",
-          "line-width": 2
-        },
-        filter: ["==", ["get", "PopID"], ""]
-      })
-
-      map.addLayer({
-        id: "org-hq",
-        type: "circle",
-        source: "network-points",
-        "source-layer": SOURCE_LAYER,
-        paint: {
-          "circle-color": "#d06222",
-          "circle-radius": 6
-        },
-        filter: ["==", ["get", "PopID"], ""]
-      });
-
-      map.addLayer({
-        id: "org-hq-outline",
-        type: "circle",
-        source: "network-points",
-        "source-layer": SOURCE_LAYER,
-        paint: {
-          "circle-color": "rgba(81, 249, 198, 0)",
-          "circle-radius": 12,
-          "circle-stroke-color": "white",
-          "circle-stroke-width": 1,
-        },
-        filter: ["==", ["get", "PopID"], ""]
-      });
-
-      map.addLayer({
-        id: "network-hq",
-        type: "circle",
-        source: "network-points",
-        "source-layer": SOURCE_LAYER,
-        paint: {
-          "circle-color": "#af8edf",
-          "circle-radius": 5
-        },
-        filter: ["==", ["get", "PopID"], ""]
-      });
-
-      map.addLayer({
-        id: "network-hq-outline",
-        type: "circle",
-        source: "network-points",
-        "source-layer": SOURCE_LAYER,
-        paint: {
-          "circle-color": "rgba(124, 163, 230, 0)",
-          "circle-radius": 10,
-          "circle-stroke-color": "white",
-          "circle-stroke-width": 1,
-        },
-        filter: ["==", ["get", "PopID"], ""]
-      });
-
-      if (map.isSourceLoaded("network-points")) {
-        buildSidebar();
-      } else {
-        map.on("sourcedata", setAfterLoad);
-      }
-
-
-
-      map.on("click", mapTurfOnClick);
-
-      //map.getCanvas().style.cursor = "default";
-
-    })
   </script>
 </body>
 
